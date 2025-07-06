@@ -1,27 +1,48 @@
+name: Cleanup Job
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run cleanup
+        run: |
+          echo "Starting cleanup..."
+          docker system prune -af
+          rm -rf /tmp/*
+          echo "Cleanup complete!"
+
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: cleanup
+  name: nose
 spec:
+  description: >-
+    A task that runs Python unit tests using nose.
+  workspaces:
+    - name: source
+      description: The workspace containing the source code.
+  params:
+    - name: args
+      type: string
+      description: Additional arguments to pass to nosetests
+      default: "-v"
   steps:
-    - name: cleanup
-      image: alpine
+    - name: run-nose-tests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
       script: |
-        #!/bin/sh
-        echo "Cleaning up workspace..."
-        rm -rf /workspace/*
- 
----
-apiVersion: tekton.dev/v1
-kind: Task
-metadata:
-  name: run-nose-tests
-spec:
-  steps:
-    - name: run-tests
-      image: python:3.9
-      workingDir: /workspace/source
-      script: |
-        pip install nose
-        nosetests test_app.py
- 
+        #!/bin/bash
+        set -e
+        echo "Installing dependencies..."
+        pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        echo "Running nosetests..."
+        nosetests $(params.args)
